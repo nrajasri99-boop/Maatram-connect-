@@ -1,0 +1,378 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user and volunteer profile containing PII restricted to owner, office team, and admins.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "volunteerCode": { "type": "string" },
+        "volunteerType": { "type": "string", "enum": ["STUDENT", "ALUMNI", "SUPPORTER"] },
+        "college": { "type": "string" },
+        "department": { "type": "string" },
+        "yearOfStudy": { "type": "string" },
+        "district": { "type": "string" },
+        "city": { "type": "string" },
+        "skills": { "type": "string" },
+        "interests": { "type": "string" },
+        "availability": { "type": "string" },
+        "preferredContact": { "type": "string" },
+        "employerOrgId": { "type": "string" },
+        "employerOrgName": { "type": "string" },
+        "consentDataProcessing": { "type": "boolean" },
+        "consentLinkedInPublic": { "type": "boolean" },
+        "profileCompleted": { "type": "boolean" },
+        "role": { "type": "string", "enum": ["VOLUNTEER", "OFFICE_TEAM", "ADMIN"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "volunteerCode", "volunteerType", "district", "role", "consentDataProcessing", "createdAt", "updatedAt"]
+    },
+    "VolunteerStats": {
+      "title": "VolunteerStats",
+      "description": "Non-PII volunteer contribution metrics, gamification points, badges, and fair allocation counters.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "volunteerCode": { "type": "string" },
+        "volunteerType": { "type": "string", "enum": ["STUDENT", "ALUMNI", "SUPPORTER"] },
+        "district": { "type": "string" },
+        "employerOrgName": { "type": "string" },
+        "availability": { "type": "string" },
+        "availableForPv": { "type": "boolean" },
+        "verifiedHours": { "type": "number" },
+        "completedActivities": { "type": "integer" },
+        "completedPvCases": { "type": "integer" },
+        "activePvCases": { "type": "integer" },
+        "points": { "type": "integer" },
+        "consistencyScore": { "type": "integer" },
+        "tier": { "type": "string", "enum": ["BRONZE", "SILVER", "GOLD", "PLATINUM"] },
+        "badges": { "type": "array" },
+        "lastVerifiedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "volunteerCode", "district", "verifiedHours", "completedActivities", "completedPvCases", "activePvCases", "points", "consistencyScore", "tier", "createdAt", "updatedAt"]
+    },
+    "AdminMember": {
+      "title": "AdminMember",
+      "description": "Authorized system administrator record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "grantedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "createdAt"]
+    },
+    "OfficeTeamMember": {
+      "title": "OfficeTeamMember",
+      "description": "Authorized Maatram Office Team coordinator record with granular permissions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "department": { "type": "string" },
+        "canApproveHours": { "type": "boolean" },
+        "canAllocatePv": { "type": "boolean" },
+        "canManageEvents": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "email", "active", "createdAt", "updatedAt"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Organization-wide configuration for active PV limits, engagement thresholds, and email mode.",
+      "type": "object",
+      "properties": {
+        "maxActivePvCases": { "type": "integer" },
+        "activeThresholdDays": { "type": "integer" },
+        "lessActiveThresholdDays": { "type": "integer" },
+        "inactiveThresholdDays": { "type": "integer" },
+        "emailProviderConfigured": { "type": "boolean" },
+        "emailSenderName": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["maxActivePvCases", "activeThresholdDays", "lessActiveThresholdDays", "inactiveThresholdDays", "emailProviderConfigured", "updatedAt"]
+    },
+    "District": {
+      "title": "District",
+      "description": "Tamil Nadu district managed dynamically by Admin and Office Team.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "code", "active", "createdAt", "updatedAt"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Employer organization linked to Maatram alumni and supporters.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "industry": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "industry", "active", "createdAt", "updatedAt"]
+    },
+    "Opportunity": {
+      "title": "Opportunity",
+      "description": "Volunteering opportunity across the 4 foundation categories.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["CALLING_BGV", "PHYSICAL_VERIFICATION", "INTERVIEWS", "EVENTS"] },
+        "activityType": { "type": "string" },
+        "description": { "type": "string" },
+        "district": { "type": "string" },
+        "location": { "type": "string" },
+        "mode": { "type": "string", "enum": ["ONLINE", "OFFLINE"] },
+        "eventDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "deadline": { "type": "string" },
+        "requiredVolunteers": { "type": "integer" },
+        "availableSlots": { "type": "integer" },
+        "totalCases": { "type": "integer" },
+        "skillsRequired": { "type": "string" },
+        "eligibility": { "type": "string" },
+        "instructions": { "type": "string" },
+        "whatsappGroupLink": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED", "COMPLETED"] },
+        "multiDayCount": { "type": "integer" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "activityType", "district", "mode", "eventDate", "requiredVolunteers", "availableSlots", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "VolunteerRequest": {
+      "title": "VolunteerRequest",
+      "description": "Volunteer participation request with approval workflow and rejection reason.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "volunteerName": { "type": "string" },
+        "volunteerCode": { "type": "string" },
+        "opportunityId": { "type": "string" },
+        "opportunityTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "district": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED", "WAITLISTED", "CANCELLED"] },
+        "rejectionReason": { "type": "string" },
+        "availabilityNote": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "volunteerName", "opportunityId", "opportunityTitle", "category", "district", "status", "createdAt", "updatedAt"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Approved volunteer assignment linked to an opportunity and cases.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "volunteerName": { "type": "string" },
+        "volunteerCode": { "type": "string" },
+        "opportunityId": { "type": "string" },
+        "opportunityTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "district": { "type": "string" },
+        "assignedCasesCount": { "type": "integer" },
+        "caseIds": { "type": "array" },
+        "status": { "type": "string", "enum": ["ASSIGNED", "IN_PROGRESS", "COMPLETED", "VERIFIED"] },
+        "progressNotes": { "type": "string" },
+        "whatsappGroupLink": { "type": "string" },
+        "overrideReason": { "type": "string" },
+        "assignedBy": { "type": "string" },
+        "verifiedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "volunteerName", "opportunityId", "opportunityTitle", "category", "district", "assignedCasesCount", "status", "assignedBy", "createdAt", "updatedAt"]
+    },
+    "PhysicalVerificationCase": {
+      "title": "PhysicalVerificationCase",
+      "description": "District physical verification case using anonymized applicant reference IDs.",
+      "type": "object",
+      "properties": {
+        "caseRefId": { "type": "string" },
+        "opportunityId": { "type": "string" },
+        "district": { "type": "string" },
+        "areaLabel": { "type": "string" },
+        "applicantCode": { "type": "string" },
+        "assignedToUid": { "type": "string" },
+        "assignedToName": { "type": "string" },
+        "status": { "type": "string", "enum": ["UNASSIGNED", "ASSIGNED", "VISITED", "COMPLETED", "VERIFIED"] },
+        "visitNotes": { "type": "string" },
+        "recommendationSummary": { "type": "string" },
+        "verifiedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["caseRefId", "opportunityId", "district", "areaLabel", "applicantCode", "assignedToUid", "status", "createdAt", "updatedAt"]
+    },
+    "CallingTask": {
+      "title": "CallingTask",
+      "description": "Calling & BGV task with anonymized applicant reference ID.",
+      "type": "object",
+      "properties": {
+        "applicantRefId": { "type": "string" },
+        "opportunityId": { "type": "string" },
+        "district": { "type": "string" },
+        "callingDate": { "type": "string" },
+        "assignedToUid": { "type": "string" },
+        "assignedToName": { "type": "string" },
+        "callStatus": { "type": "string", "enum": ["NOT_STARTED", "CALLED", "NOT_REACHABLE", "CALL_BACK_REQUIRED", "DETAILS_VERIFIED", "DETAILS_NOT_VERIFIED", "COMPLETED"] },
+        "followUpRequired": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "verifiedByOffice": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["applicantRefId", "opportunityId", "district", "assignedToUid", "callStatus", "followUpRequired", "verifiedByOffice", "createdAt", "updatedAt"]
+    },
+    "VolunteerHours": {
+      "title": "VolunteerHours",
+      "description": "Submitted and office-verified volunteer hours record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "volunteerName": { "type": "string" },
+        "volunteerCode": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "opportunityId": { "type": "string" },
+        "opportunityTitle": { "type": "string" },
+        "category": { "type": "string" },
+        "district": { "type": "string" },
+        "employerOrgName": { "type": "string" },
+        "activityDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "breakMinutes": { "type": "integer" },
+        "calculatedHours": { "type": "number" },
+        "submittedHours": { "type": "number" },
+        "dayNumber": { "type": "integer" },
+        "notes": { "type": "string" },
+        "verificationStatus": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "reviewerUid": { "type": "string" },
+        "reviewerName": { "type": "string" },
+        "correctionNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "volunteerName", "assignmentId", "opportunityTitle", "category", "activityDate", "submittedHours", "verificationStatus", "createdAt", "updatedAt"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app notification and email dispatch log entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "emailMode": { "type": "string" },
+        "readFlag": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "readFlag", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable audit log for allocations, overrides, approvals, and role changes.",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorName", "actorRole", "action", "targetType", "targetId", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private volunteer/staff profiles protected by owner, office team, and admin access."
+    },
+    "/volunteer_stats/{userId}": {
+      "schema": { "$ref": "#/entities/VolunteerStats" },
+      "description": "Non-PII volunteer contribution metrics, badges, and fairness scores."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminMember" },
+      "description": "Admin role membership records."
+    },
+    "/office_team/{userId}": {
+      "schema": { "$ref": "#/entities/OfficeTeamMember" },
+      "description": "Office team coordinator records."
+    },
+    "/app_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSettings" },
+      "description": "Global allocation limits and engagement thresholds."
+    },
+    "/districts/{districtId}": {
+      "schema": { "$ref": "#/entities/District" },
+      "description": "Managed Tamil Nadu districts."
+    },
+    "/organizations/{orgId}": {
+      "schema": { "$ref": "#/entities/Organization" },
+      "description": "Employer organizations for alumni and supporter reporting."
+    },
+    "/opportunities/{oppId}": {
+      "schema": { "$ref": "#/entities/Opportunity" },
+      "description": "Volunteering opportunities across the 4 Maatram categories."
+    },
+    "/volunteer_requests/{reqId}": {
+      "schema": { "$ref": "#/entities/VolunteerRequest" },
+      "description": "Volunteer join requests with approval workflow."
+    },
+    "/assignments/{assignId}": {
+      "schema": { "$ref": "#/entities/Assignment" },
+      "description": "Approved volunteer assignments."
+    },
+    "/pv_cases/{caseId}": {
+      "schema": { "$ref": "#/entities/PhysicalVerificationCase" },
+      "description": "Physical verification cases assigned to volunteers."
+    },
+    "/calling_tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/CallingTask" },
+      "description": "Calling & BGV verification tasks."
+    },
+    "/volunteer_hours/{hourId}": {
+      "schema": { "$ref": "#/entities/VolunteerHours" },
+      "description": "Volunteer hour logs awaiting or approved by Office Team."
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "In-app notifications and email status logs."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable organizational audit trail."
+    }
+  }
+}

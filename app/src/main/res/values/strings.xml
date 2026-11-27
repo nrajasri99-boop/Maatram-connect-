@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Maatram Connect</string>
+    <string name="brand_tagline">Every Volunteer Matters. Every Contribution Counts.</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="complete_profile_title">Complete Volunteer Profile</string>
+    <string name="fair_allocation_title">Fair Volunteer Allocation</string>
+    <string name="demo_mode_banner">Demo Dataset Active (Fictional Sample Records)</string>
+</resources>

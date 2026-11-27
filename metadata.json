@@ -1,0 +1,6 @@
+{
+  "name": "Maatram Connect",
+  "description": "Volunteer management, fair district allocation, verified contribution tracking, and gamification portal for Maatram Foundation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

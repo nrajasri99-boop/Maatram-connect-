@@ -1,0 +1,594 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'nrajasri99@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() ||
+        (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isOfficeTeam() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/office_team/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/office_team/$(request.auth.uid)).data.active == true;
+    }
+
+    function isStaff() {
+      return isAdmin() || isOfficeTeam();
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    // --- VALIDATION HELPERS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100 &&
+        data.volunteerCode is string && data.volunteerCode.size() >= 2 && data.volunteerCode.size() <= 32 &&
+        data.volunteerType in ['STUDENT', 'ALUMNI', 'SUPPORTER'] &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.role in ['VOLUNTEER', 'OFFICE_TEAM', 'ADMIN'] &&
+        data.consentDataProcessing is bool &&
+        isOptionalString(data, 'email', 120) &&
+        isOptionalString(data, 'phone', 32) &&
+        isOptionalString(data, 'college', 120) &&
+        isOptionalString(data, 'department', 80) &&
+        isOptionalString(data, 'yearOfStudy', 32) &&
+        isOptionalString(data, 'city', 64) &&
+        isOptionalString(data, 'skills', 300) &&
+        isOptionalString(data, 'interests', 300) &&
+        isOptionalString(data, 'availability', 120) &&
+        isOptionalString(data, 'preferredContact', 40) &&
+        isOptionalString(data, 'employerOrgId', 128) &&
+        isOptionalString(data, 'employerOrgName', 120) &&
+        (!('consentLinkedInPublic' in data) || data.consentLinkedInPublic is bool) &&
+        (!('profileCompleted' in data) || data.profileCompleted is bool) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVolunteerStats(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 100 &&
+        data.volunteerCode is string && data.volunteerCode.size() >= 2 && data.volunteerCode.size() <= 32 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.verifiedHours is number && data.verifiedHours >= 0 && data.verifiedHours <= 100000 &&
+        data.completedActivities is int && data.completedActivities >= 0 && data.completedActivities <= 10000 &&
+        data.completedPvCases is int && data.completedPvCases >= 0 && data.completedPvCases <= 10000 &&
+        data.activePvCases is int && data.activePvCases >= 0 && data.activePvCases <= 100 &&
+        data.points is int && data.points >= 0 && data.points <= 10000000 &&
+        data.consistencyScore is int && data.consistencyScore >= 0 && data.consistencyScore <= 100 &&
+        data.tier in ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] &&
+        (!('volunteerType' in data) || data.volunteerType in ['STUDENT', 'ALUMNI', 'SUPPORTER']) &&
+        (!('employerOrgName' in data) || (data.employerOrgName is string && data.employerOrgName.size() <= 120)) &&
+        (!('availability' in data) || (data.availability is string && data.availability.size() <= 120)) &&
+        (!('availableForPv' in data) || data.availableForPv is bool) &&
+        (!('badges' in data) || (data.badges is list && data.badges.size() <= 20 && (data.badges.size() == 0 || data.badges[0] is string))) &&
+        (!('lastVerifiedAt' in data) || isValidTimestamp(data.lastVerifiedAt)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOfficeTeamMember(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+        data.active is bool &&
+        isOptionalString(data, 'department', 80) &&
+        (!('canApproveHours' in data) || data.canApproveHours is bool) &&
+        (!('canAllocatePv' in data) || data.canAllocatePv is bool) &&
+        (!('canManageEvents' in data) || data.canManageEvents is bool) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAppSettings(data) {
+      return data.maxActivePvCases is int && data.maxActivePvCases >= 1 && data.maxActivePvCases <= 20 &&
+        data.activeThresholdDays is int && data.activeThresholdDays >= 1 && data.activeThresholdDays <= 365 &&
+        data.lessActiveThresholdDays is int && data.lessActiveThresholdDays >= 1 && data.lessActiveThresholdDays <= 365 &&
+        data.inactiveThresholdDays is int && data.inactiveThresholdDays >= 1 && data.inactiveThresholdDays <= 730 &&
+        data.emailProviderConfigured is bool &&
+        isOptionalString(data, 'emailSenderName', 100) &&
+        isOptionalString(data, 'updatedBy', 128) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidDistrict(data) {
+      return data.name is string && data.name.size() >= 2 && data.name.size() <= 64 &&
+        data.code is string && data.code.size() >= 2 && data.code.size() <= 16 &&
+        data.active is bool &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOrganization(data) {
+      return data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+        data.industry is string && data.industry.size() >= 2 && data.industry.size() <= 80 &&
+        data.active is bool &&
+        isOptionalString(data, 'contactPerson', 100) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOpportunity(data) {
+      return data.title is string && data.title.size() >= 3 && data.title.size() <= 140 &&
+        data.category in ['CALLING_BGV', 'PHYSICAL_VERIFICATION', 'INTERVIEWS', 'EVENTS'] &&
+        data.activityType is string && data.activityType.size() >= 2 && data.activityType.size() <= 80 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.mode in ['ONLINE', 'OFFLINE'] &&
+        data.eventDate is string && data.eventDate.size() >= 4 && data.eventDate.size() <= 32 &&
+        data.requiredVolunteers is int && data.requiredVolunteers >= 1 && data.requiredVolunteers <= 1000 &&
+        data.availableSlots is int && data.availableSlots >= 0 && data.availableSlots <= 1000 &&
+        data.status in ['OPEN', 'CLOSED', 'COMPLETED'] &&
+        data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128 &&
+        isOptionalString(data, 'description', 1000) &&
+        isOptionalString(data, 'location', 200) &&
+        isOptionalString(data, 'startTime', 24) &&
+        isOptionalString(data, 'endTime', 24) &&
+        isOptionalString(data, 'deadline', 32) &&
+        (!('totalCases' in data) || (data.totalCases is int && data.totalCases >= 0 && data.totalCases <= 1000)) &&
+        isOptionalString(data, 'skillsRequired', 200) &&
+        isOptionalString(data, 'eligibility', 200) &&
+        isOptionalString(data, 'instructions', 500) &&
+        isOptionalString(data, 'whatsappGroupLink', 300) &&
+        (!('multiDayCount' in data) || (data.multiDayCount is int && data.multiDayCount >= 1 && data.multiDayCount <= 30)) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVolunteerRequest(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.volunteerName is string && data.volunteerName.size() >= 2 && data.volunteerName.size() <= 100 &&
+        data.opportunityId is string && data.opportunityId.size() >= 1 && data.opportunityId.size() <= 128 &&
+        data.opportunityTitle is string && data.opportunityTitle.size() >= 2 && data.opportunityTitle.size() <= 140 &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 64 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.status in ['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'WAITLISTED', 'CANCELLED'] &&
+        isOptionalString(data, 'volunteerCode', 32) &&
+        isOptionalString(data, 'rejectionReason', 300) &&
+        isOptionalString(data, 'availabilityNote', 300) &&
+        isOptionalString(data, 'reviewedBy', 128) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAssignment(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.volunteerName is string && data.volunteerName.size() >= 2 && data.volunteerName.size() <= 100 &&
+        data.opportunityId is string && data.opportunityId.size() >= 1 && data.opportunityId.size() <= 128 &&
+        data.opportunityTitle is string && data.opportunityTitle.size() >= 2 && data.opportunityTitle.size() <= 140 &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 64 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.assignedCasesCount is int && data.assignedCasesCount >= 0 && data.assignedCasesCount <= 100 &&
+        data.status in ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'VERIFIED'] &&
+        data.assignedBy is string && data.assignedBy.size() >= 1 && data.assignedBy.size() <= 128 &&
+        isOptionalString(data, 'volunteerCode', 32) &&
+        (!('caseIds' in data) || (data.caseIds is list && data.caseIds.size() <= 20 && (data.caseIds.size() == 0 || data.caseIds[0] is string))) &&
+        isOptionalString(data, 'progressNotes', 500) &&
+        isOptionalString(data, 'whatsappGroupLink', 300) &&
+        isOptionalString(data, 'overrideReason', 300) &&
+        isOptionalString(data, 'verifiedBy', 128) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPvCase(data) {
+      return data.caseRefId is string && data.caseRefId.size() >= 2 && data.caseRefId.size() <= 40 &&
+        data.opportunityId is string && data.opportunityId.size() >= 1 && data.opportunityId.size() <= 128 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.areaLabel is string && data.areaLabel.size() >= 2 && data.areaLabel.size() <= 120 &&
+        data.applicantCode is string && data.applicantCode.size() >= 2 && data.applicantCode.size() <= 40 &&
+        data.assignedToUid is string && data.assignedToUid.size() <= 128 &&
+        data.status in ['UNASSIGNED', 'ASSIGNED', 'VISITED', 'COMPLETED', 'VERIFIED'] &&
+        isOptionalString(data, 'assignedToName', 100) &&
+        isOptionalString(data, 'visitNotes', 500) &&
+        isOptionalString(data, 'recommendationSummary', 300) &&
+        isOptionalString(data, 'verifiedBy', 128) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCallingTask(data) {
+      return data.applicantRefId is string && data.applicantRefId.size() >= 2 && data.applicantRefId.size() <= 40 &&
+        data.opportunityId is string && data.opportunityId.size() >= 1 && data.opportunityId.size() <= 128 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64 &&
+        data.assignedToUid is string && data.assignedToUid.size() <= 128 &&
+        data.callStatus in ['NOT_STARTED', 'CALLED', 'NOT_REACHABLE', 'CALL_BACK_REQUIRED', 'DETAILS_VERIFIED', 'DETAILS_NOT_VERIFIED', 'COMPLETED'] &&
+        data.followUpRequired is bool &&
+        data.verifiedByOffice is bool &&
+        isOptionalString(data, 'callingDate', 32) &&
+        isOptionalString(data, 'assignedToName', 100) &&
+        isOptionalString(data, 'notes', 500) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVolunteerHours(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.volunteerName is string && data.volunteerName.size() >= 2 && data.volunteerName.size() <= 100 &&
+        data.assignmentId is string && data.assignmentId.size() >= 1 && data.assignmentId.size() <= 128 &&
+        data.opportunityTitle is string && data.opportunityTitle.size() >= 2 && data.opportunityTitle.size() <= 140 &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 64 &&
+        data.activityDate is string && data.activityDate.size() >= 4 && data.activityDate.size() <= 32 &&
+        data.submittedHours is number && data.submittedHours > 0 && data.submittedHours <= 24 &&
+        data.verificationStatus in ['PENDING', 'APPROVED', 'REJECTED'] &&
+        isOptionalString(data, 'volunteerCode', 32) &&
+        isOptionalString(data, 'opportunityId', 128) &&
+        isOptionalString(data, 'district', 64) &&
+        isOptionalString(data, 'employerOrgName', 120) &&
+        isOptionalString(data, 'startTime', 24) &&
+        isOptionalString(data, 'endTime', 24) &&
+        (!('breakMinutes' in data) || (data.breakMinutes is int && data.breakMinutes >= 0 && data.breakMinutes <= 300)) &&
+        (!('calculatedHours' in data) || (data.calculatedHours is number && data.calculatedHours >= 0 && data.calculatedHours <= 24)) &&
+        (!('dayNumber' in data) || (data.dayNumber is int && data.dayNumber >= 1 && data.dayNumber <= 30)) &&
+        isOptionalString(data, 'notes', 500) &&
+        isOptionalString(data, 'reviewerUid', 128) &&
+        isOptionalString(data, 'reviewerName', 100) &&
+        isOptionalString(data, 'correctionNote', 300) &&
+        isValidTimestamp(data.createdAt) &&
+        isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+        data.message is string && data.message.size() >= 2 && data.message.size() <= 1000 &&
+        data.type is string && data.type.size() >= 2 && data.type.size() <= 40 &&
+        data.readFlag is bool &&
+        isOptionalString(data, 'emailMode', 40) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAuditLog(data) {
+      return data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
+        data.actorName is string && data.actorName.size() >= 2 && data.actorName.size() <= 100 &&
+        data.actorRole is string && data.actorRole.size() >= 2 && data.actorRole.size() <= 32 &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 80 &&
+        data.targetType is string && data.targetType.size() >= 2 && data.targetType.size() <= 64 &&
+        data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+        data.details is string && data.details.size() >= 2 && data.details.size() <= 500 &&
+        isOptionalString(data, 'reason', 300) &&
+        isValidTimestamp(data.createdAt);
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. Private User Profiles (PII Protected)
+    match /profiles/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(userId) &&
+        isSignedIn() &&
+        isValidUserProfile(incoming()) &&
+        (
+          (isOwner(userId) && incoming().userId == userId &&
+           (incoming().role == 'VOLUNTEER' || (isBootstrappedAdmin() && incoming().role == 'ADMIN'))) ||
+          isAdmin()
+        );
+
+      allow update: if isValidId(userId) &&
+        isSignedIn() &&
+        isValidUserProfile(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isOwner(userId) &&
+           incoming().role == existing().role &&
+           incoming().diff(existing()).affectedKeys().hasOnly([
+             'fullName', 'phone', 'volunteerType', 'college', 'department', 'yearOfStudy',
+             'district', 'city', 'skills', 'interests', 'availability', 'preferredContact',
+             'employerOrgId', 'employerOrgName', 'consentDataProcessing', 'consentLinkedInPublic',
+             'profileCompleted', 'updatedAt'
+           ]))
+        );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 2. Non-PII Volunteer Stats (Leaderboard & Fair Allocation)
+    match /volunteer_stats/{userId} {
+      allow get: if isValidId(userId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.points >= 0;
+
+      allow create: if isValidId(userId) &&
+        isSignedIn() &&
+        isValidVolunteerStats(incoming()) &&
+        (
+          (isOwner(userId) && incoming().userId == userId &&
+           incoming().verifiedHours == 0 &&
+           incoming().completedActivities == 0 &&
+           incoming().completedPvCases == 0 &&
+           incoming().activePvCases == 0 &&
+           incoming().points == 0 &&
+           incoming().tier == 'BRONZE') ||
+          isStaff()
+        );
+
+      allow update: if isValidId(userId) &&
+        isSignedIn() &&
+        isValidVolunteerStats(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isStaff() ||
+          (isOwner(userId) &&
+           incoming().diff(existing()).affectedKeys().hasOnly([
+             'displayName', 'volunteerType', 'district', 'employerOrgName',
+             'availability', 'availableForPv', 'updatedAt'
+           ]))
+        );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 3. Admins
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update: if isValidId(userId) &&
+        isAdmin() &&
+        incoming().userId is string &&
+        incoming().email is string &&
+        isValidTimestamp(incoming().createdAt);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 4. Office Team Members
+    match /office_team/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isStaff());
+      allow list: if isStaff();
+      allow create, update: if isValidId(userId) &&
+        isAdmin() &&
+        isValidOfficeTeamMember(incoming());
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 5. Global App Settings
+    match /app_settings/{settingId} {
+      allow get: if isValidId(settingId) && isSignedIn();
+      allow list: if false;
+      allow create, update: if isValidId(settingId) &&
+        isStaff() &&
+        isValidAppSettings(incoming());
+      allow delete: if false;
+    }
+
+    // 6. Districts
+    match /districts/{districtId} {
+      allow get: if isValidId(districtId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.active == true;
+      allow create, update: if isValidId(districtId) && isStaff() && isValidDistrict(incoming());
+      allow delete: if isValidId(districtId) && isAdmin();
+    }
+
+    // 7. Employer Organizations
+    match /organizations/{orgId} {
+      allow get: if isValidId(orgId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.active == true;
+      allow create, update: if isValidId(orgId) && isStaff() && isValidOrganization(incoming());
+      allow delete: if isValidId(orgId) && isAdmin();
+    }
+
+    // 8. Opportunities
+    match /opportunities/{oppId} {
+      allow get: if isValidId(oppId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.status in ['OPEN', 'CLOSED', 'COMPLETED'];
+      allow create: if isValidId(oppId) && isStaff() && isValidOpportunity(incoming());
+      allow update: if isValidId(oppId) &&
+        isStaff() &&
+        isValidOpportunity(incoming()) &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(oppId) && isAdmin();
+    }
+
+    // 9. Volunteer Requests
+    match /volunteer_requests/{reqId} {
+      allow get: if isValidId(reqId) && isSignedIn() && (existing().userId == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(reqId) &&
+        isSignedIn() &&
+        isValidVolunteerRequest(incoming()) &&
+        exists(/databases/$(database)/documents/opportunities/$(incoming().opportunityId)) &&
+        (
+          (incoming().userId == request.auth.uid && incoming().status == 'PENDING') ||
+          isStaff()
+        );
+
+      allow update: if isValidId(reqId) &&
+        isSignedIn() &&
+        isValidVolunteerRequest(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().opportunityId == existing().opportunityId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isStaff() ||
+          (existing().userId == request.auth.uid &&
+           existing().status in ['PENDING', 'UNDER_REVIEW'] &&
+           incoming().status == 'CANCELLED' &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(reqId) && isAdmin();
+    }
+
+    // 10. Assignments
+    match /assignments/{assignId} {
+      allow get: if isValidId(assignId) && isSignedIn() && (existing().userId == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(assignId) &&
+        isStaff() &&
+        isValidAssignment(incoming()) &&
+        exists(/databases/$(database)/documents/opportunities/$(incoming().opportunityId));
+
+      allow update: if isValidId(assignId) &&
+        isSignedIn() &&
+        isValidAssignment(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().opportunityId == existing().opportunityId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isOfficeTeam() && existing().status != 'VERIFIED') ||
+          (existing().userId == request.auth.uid &&
+           existing().status in ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED'] &&
+           incoming().status in ['IN_PROGRESS', 'COMPLETED'] &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progressNotes', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(assignId) && isAdmin();
+    }
+
+    // 11. Physical Verification Cases (Applicant data restricted to assigned volunteer & staff)
+    match /pv_cases/{caseId} {
+      allow get: if isValidId(caseId) && isSignedIn() && (existing().assignedToUid == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.assignedToUid == request.auth.uid);
+
+      allow create: if isValidId(caseId) && isStaff() && isValidPvCase(incoming());
+
+      allow update: if isValidId(caseId) &&
+        isSignedIn() &&
+        isValidPvCase(incoming()) &&
+        incoming().caseRefId == existing().caseRefId &&
+        incoming().opportunityId == existing().opportunityId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isOfficeTeam() && existing().status != 'VERIFIED') ||
+          (existing().assignedToUid == request.auth.uid &&
+           existing().status in ['ASSIGNED', 'VISITED', 'COMPLETED'] &&
+           incoming().status in ['VISITED', 'COMPLETED'] &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'visitNotes', 'recommendationSummary', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(caseId) && isAdmin();
+    }
+
+    // 12. Calling & BGV Tasks
+    match /calling_tasks/{taskId} {
+      allow get: if isValidId(taskId) && isSignedIn() && (existing().assignedToUid == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.assignedToUid == request.auth.uid);
+
+      allow create: if isValidId(taskId) && isStaff() && isValidCallingTask(incoming());
+
+      allow update: if isValidId(taskId) &&
+        isSignedIn() &&
+        isValidCallingTask(incoming()) &&
+        incoming().applicantRefId == existing().applicantRefId &&
+        incoming().opportunityId == existing().opportunityId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isStaff() ||
+          (existing().assignedToUid == request.auth.uid &&
+           existing().verifiedByOffice == false &&
+           incoming().verifiedByOffice == false &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['callStatus', 'followUpRequired', 'notes', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(taskId) && isAdmin();
+    }
+
+    // 13. Volunteer Hours
+    match /volunteer_hours/{hourId} {
+      allow get: if isValidId(hourId) && isSignedIn() && (existing().userId == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(hourId) &&
+        isSignedIn() &&
+        isValidVolunteerHours(incoming()) &&
+        (
+          (incoming().userId == request.auth.uid &&
+           incoming().verificationStatus == 'PENDING' &&
+           (!('reviewerUid' in incoming()) || incoming().reviewerUid == '')) ||
+          isStaff()
+        );
+
+      allow update: if isValidId(hourId) &&
+        isSignedIn() &&
+        isValidVolunteerHours(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().assignmentId == existing().assignmentId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isOfficeTeam() && existing().verificationStatus != 'APPROVED')
+        );
+
+      allow delete: if isValidId(hourId) && isAdmin();
+    }
+
+    // 14. Notifications
+    match /notifications/{notifId} {
+      allow get: if isValidId(notifId) && isSignedIn() && (existing().userId == request.auth.uid || isStaff());
+      allow list: if isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isValidId(notifId) &&
+        isSignedIn() &&
+        isValidNotification(incoming()) &&
+        (incoming().userId == request.auth.uid || isStaff());
+
+      allow update: if isValidId(notifId) &&
+        isSignedIn() &&
+        isValidNotification(incoming()) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isStaff() ||
+          (existing().userId == request.auth.uid &&
+           incoming().diff(existing()).affectedKeys().hasOnly(['readFlag']))
+        );
+
+      allow delete: if isValidId(notifId) && (isOwner(existing().userId) || isAdmin());
+    }
+
+    // 15. Audit Logs (Immutable)
+    match /audit_logs/{logId} {
+      allow get, list: if isStaff();
+      allow create: if isValidId(logId) &&
+        isSignedIn() &&
+        isValidAuditLog(incoming()) &&
+        incoming().actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
