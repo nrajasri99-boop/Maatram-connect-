@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.data.model.Assignment
 import com.example.data.model.CallStatus
 import com.example.data.model.CallingTask
 import com.example.data.model.DistrictItem
@@ -89,6 +90,7 @@ fun VolunteerOpportunitiesScreen(
     userDistrict: String,
     currentUserId: String = "",
     availableForPv: Boolean = true,
+    myAssignments: List<Assignment> = emptyList(),
     pvCases: List<PhysicalVerificationCase> = emptyList(),
     callingTasks: List<CallingTask> = emptyList(),
     isBusy: Boolean,
@@ -189,12 +191,14 @@ fun VolunteerOpportunitiesScreen(
                     val meta = categoryMeta(cat)
                     val subtitleExtra = when (cat) {
                         OpportunityCategory.PHYSICAL_VERIFICATION -> {
-                            val totalCases = pvCases.size
-                            if (availableForPv) "PV Available • $totalCases cases listed" else "PV Unavailable • $totalCases cases listed"
+                            val assignedCount = pvCases.count { currentUserId.isNotBlank() && it.assignedToUid == currentUserId }
+                            if (assignedCount > 0) "PV Available: $openCount open • $assignedCount assigned to you"
+                            else if (availableForPv) "PV Available • $openCount open for request"
+                            else "Mark PV available & send request"
                         }
                         OpportunityCategory.CALLING_BGV -> {
-                            val assigned = callingTasks.count { it.assignedToUid == currentUserId }
-                            if (assigned > 0) "$assigned calling tasks assigned" else meta.second
+                            val assigned = callingTasks.count { currentUserId.isNotBlank() && it.assignedToUid == currentUserId }
+                            if (assigned > 0) "$assigned assigned to you • $openCount open" else meta.second
                         }
                         else -> meta.second
                     }
@@ -401,9 +405,7 @@ fun VolunteerOpportunitiesScreen(
                 } else {
                     categoryOpps.forEach { opp ->
                         val existingReq = myRequests.firstOrNull { it.opportunityId == opp.id }
-                        val drivePvCases = if (activeCat == OpportunityCategory.PHYSICAL_VERIFICATION) {
-                            pvCases.filter { it.opportunityId == opp.id }
-                        } else emptyList()
+                        val myOppAssignment = myAssignments.firstOrNull { it.opportunityId == opp.id }
 
                         Card(
                             shape = RoundedCornerShape(18.dp),
@@ -423,7 +425,13 @@ fun VolunteerOpportunitiesScreen(
                                     CategoryBadge(opp.category)
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         StatusPill(opp.mode)
-                                        StatusPill(existingReq?.status ?: opp.status)
+                                        StatusPill(
+                                            when {
+                                                myOppAssignment != null -> "ASSIGNED"
+                                                existingReq != null -> existingReq.status
+                                                else -> opp.status
+                                            }
+                                        )
                                     }
                                 }
 
@@ -462,61 +470,12 @@ fun VolunteerOpportunitiesScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
-                                        text = buildString {
-                                            append("Open Slots: ${opp.availableSlots}/${opp.requiredVolunteers}")
-                                            if (drivePvCases.isNotEmpty()) append(" • ${drivePvCases.size} PV Cases")
-                                            else if (opp.totalCases > 0) append(" • ${opp.totalCases} Cases")
-                                        },
+                                        text = "Office Availability Poll: ${opp.availableSlots} of ${opp.requiredVolunteers} slots available",
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaatramNavy,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                                     )
-                                }
-
-                                // Inside Physical Verification page: show the PV Cases in this drive
-                                if (drivePvCases.isNotEmpty()) {
-                                    Column(
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = "PV Cases Inside Drive",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaatramNavy
-                                        )
-                                        drivePvCases.forEach { pv ->
-                                            Surface(
-                                                color = MaatramBlueSoft.copy(alpha = 0.65f),
-                                                shape = RoundedCornerShape(10.dp),
-                                                border = BorderStroke(1.dp, MaatramOutline),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Text(
-                                                            text = "${pv.caseRefId} • ${pv.areaLabel.ifBlank { pv.district }}",
-                                                            style = MaterialTheme.typography.labelLarge,
-                                                            color = MaatramNavy,
-                                                            fontWeight = FontWeight.SemiBold
-                                                        )
-                                                        Text(
-                                                            text = "Applicant: ${pv.applicantCode}${if (pv.assignedToName.isNotBlank()) " • Assigned: ${pv.assignedToName}" else ""}",
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                    StatusPill(pv.status)
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
 
                                 if (existingReq?.status == RequestStatus.REJECTED.name && existingReq.rejectionReason.isNotBlank()) {
@@ -528,9 +487,24 @@ fun VolunteerOpportunitiesScreen(
                                 }
 
                                 val canRequest = opp.status == OpportunityStatus.OPEN.name &&
+                                    myOppAssignment == null &&
                                     (existingReq == null || existingReq.status == RequestStatus.CANCELLED.name || existingReq.status == RequestStatus.REJECTED.name)
 
-                                if (canRequest) {
+                                if (myOppAssignment != null) {
+                                    Surface(
+                                        color = MaatramGreenSoft,
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "Assigned to You — See your assigned details below.",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaatramGreen,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                } else if (canRequest) {
                                     Button(
                                         onClick = { requestDialogOpportunity = opp },
                                         enabled = !isBusy,
@@ -545,7 +519,7 @@ fun VolunteerOpportunitiesScreen(
                                             .testTag("request_join_${opp.id}")
                                     ) {
                                         Text(
-                                            text = "I'm Available — Send Request",
+                                            text = "Accept Availability — Send Request",
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -561,7 +535,7 @@ fun VolunteerOpportunitiesScreen(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Text(
-                                                text = "Availability Request Sent",
+                                                text = "Request Sent (Awaiting Assignment)",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = MaatramGreen,
                                                 fontWeight = FontWeight.SemiBold,
@@ -581,9 +555,68 @@ fun VolunteerOpportunitiesScreen(
                     }
                 }
 
+                // Assigned Details Section: ONLY shown if Office Team has assigned this student
+                val myCategoryAssignments = myAssignments.filter { it.category == activeCat.name }
+                if (myCategoryAssignments.isNotEmpty()) {
+                    HorizontalDivider(color = MaatramOutline)
+                    Text(
+                        text = "My Assigned Details (${myCategoryAssignments.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaatramNavy
+                    )
+                    myCategoryAssignments.forEach { assign ->
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, MaatramGreen),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = assign.opportunityTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaatramNavy,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    StatusPill(assign.status)
+                                }
+                                Text(
+                                    text = "${assign.district}${if (assign.assignedCasesCount > 0) " • ${assign.assignedCasesCount} case(s) assigned" else ""}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (assign.progressNotes.isNotBlank()) {
+                                    Text(
+                                        text = "Notes: ${assign.progressNotes}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaatramNavy
+                                    )
+                                }
+                                if (assign.whatsappGroupLink.isNotBlank()) {
+                                    Text(
+                                        text = "Coordination Group: ${assign.whatsappGroupLink}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaatramBlue
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // My Assigned PV Cases section inside Physical Verification Page
                 if (activeCat == OpportunityCategory.PHYSICAL_VERIFICATION) {
-                    val myAssignedPv = pvCases.filter { it.assignedToUid == currentUserId }
+                    val myAssignedPv = pvCases.filter { currentUserId.isNotBlank() && it.assignedToUid == currentUserId }
                     if (myAssignedPv.isNotEmpty()) {
                         HorizontalDivider(color = MaatramOutline)
                         Text(
@@ -646,7 +679,7 @@ fun VolunteerOpportunitiesScreen(
 
                 // My Calling Tasks section inside Calling & BGV Page
                 if (activeCat == OpportunityCategory.CALLING_BGV) {
-                    val myCalls = callingTasks.filter { it.assignedToUid == currentUserId }
+                    val myCalls = callingTasks.filter { currentUserId.isNotBlank() && it.assignedToUid == currentUserId }
                     if (myCalls.isNotEmpty()) {
                         HorizontalDivider(color = MaatramOutline)
                         Text(

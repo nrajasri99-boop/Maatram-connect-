@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HomeWork
+import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
@@ -36,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,10 +84,13 @@ fun OfficeDashboardAndRequestsScreen(
     pvCases: List<PhysicalVerificationCase>,
     volunteerHours: List<VolunteerHours>,
     districts: List<DistrictItem>,
+    currentUserId: String = "",
     isBusy: Boolean,
     onCreateOpportunity: (Opportunity, Int) -> Unit,
     onToggleOppStatus: (Opportunity, OpportunityStatus) -> Unit,
     onReviewRequest: (VolunteerRequest, Opportunity, RequestStatus, String) -> Unit,
+    onCastPollVote: (Opportunity) -> Unit = {},
+    onCancelPollVote: (VolunteerRequest) -> Unit = {},
     onOpenFairAllocation: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -102,13 +108,14 @@ fun OfficeDashboardAndRequestsScreen(
             onSelect = { selectedTab = it }
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        key(selectedTab) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             Column(
                 modifier = Modifier.widthIn(max = 1040.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -145,7 +152,7 @@ fun OfficeDashboardAndRequestsScreen(
                                     modifier = mod.testTag("office_create_opp_btn")
                                 ) {
                                     Icon(Icons.Filled.Add, contentDescription = null)
-                                    Text(" Post Volunteer Work", maxLines = 1)
+                                    Text(" Post Availability Poll", maxLines = 1)
                                 }
                             },
                             second = { mod ->
@@ -157,6 +164,93 @@ fun OfficeDashboardAndRequestsScreen(
                                 }
                             }
                         )
+
+                        // Office Team Self-Polling & Common Availability Board
+                        Text(
+                            text = "Availability Polling (Office Vote & Student Slots)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaatramNavy
+                        )
+                        val openPolls = opportunities.filter { it.status == OpportunityStatus.OPEN.name }
+                        if (openPolls.isEmpty()) {
+                            EmptyStateCard(
+                                title = "No Open Availability Polls",
+                                message = "Tap Post Availability Poll above to publish available slots for students."
+                            )
+                        } else {
+                            openPolls.forEach { opp ->
+                                val activeVotes = requests.filter {
+                                    it.opportunityId == opp.id &&
+                                        it.status != RequestStatus.CANCELLED.name &&
+                                        it.status != RequestStatus.REJECTED.name
+                                }
+                                val myVote = activeVotes.firstOrNull { it.userId == currentUserId }
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    border = BorderStroke(1.dp, MaatramOutline),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            CategoryBadge(opp.category)
+                                            Text(
+                                                text = "${activeVotes.size} Voted Available",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaatramBlue
+                                            )
+                                        }
+                                        Text(
+                                            text = opp.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaatramNavy
+                                        )
+                                        Text(
+                                            text = "Posted Available for Students: ${opp.availableSlots} / ${opp.requiredVolunteers} slots • ${opp.district} (${opp.eventDate})",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (myVote != null) {
+                                            OutlinedButton(
+                                                onClick = { onCancelPollVote(myVote) },
+                                                enabled = !isBusy,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("office_poll_vote_${opp.id}")
+                                            ) {
+                                                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaatramGreen)
+                                                Text(" Voted Available (Tap to Withdraw)", color = MaatramGreen)
+                                            }
+                                        } else {
+                                            Button(
+                                                onClick = { onCastPollVote(opp) },
+                                                enabled = !isBusy,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaatramBlue,
+                                                    contentColor = Color.White
+                                                ),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("office_poll_vote_${opp.id}")
+                                            ) {
+                                                Icon(Icons.Filled.HowToVote, contentDescription = null)
+                                                Text(" Vote Available in Poll", fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         val distAvailability = allStats
                             .filter { it.availableForPv }
@@ -326,6 +420,7 @@ fun OfficeDashboardAndRequestsScreen(
                 Spacer(Modifier.height(12.dp))
             }
         }
+        }
     }
 
     if (showCreateOppDialog) {
@@ -391,7 +486,7 @@ fun OfficeDashboardAndRequestsScreen(
                         breakpoint = 320.dp,
                         spacing = 8.dp,
                         first = { mod -> OutlinedTextField(value = eventDate, onValueChange = { eventDate = it }, label = { Text("Date") }, singleLine = true, modifier = mod) },
-                        second = { mod -> OutlinedTextField(value = reqVols, onValueChange = { reqVols = it }, label = { Text("Volunteers") }, singleLine = true, modifier = mod) }
+                        second = { mod -> OutlinedTextField(value = reqVols, onValueChange = { reqVols = it }, label = { Text("Available Slots") }, singleLine = true, modifier = mod) }
                     )
                     ResponsivePair(
                         breakpoint = 320.dp,

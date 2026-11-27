@@ -98,7 +98,7 @@ class PreviewWorkspaceState(
             consentDataProcessing = true,
             consentLinkedInPublic = true,
             profileCompleted = true,
-            role = UserRole.ADMIN.name
+            role = initialRole.name
         )
     )
         private set
@@ -148,9 +148,9 @@ class PreviewWorkspaceState(
                 userId = "demo_vol_03",
                 displayName = "Aravind Krishnan",
                 volunteerCode = "MF-DEMO-003",
-                volunteerType = "ALUMNI",
+                volunteerType = "STUDENT",
                 district = "Chennai",
-                employerOrgName = "TCS Maitree Alumni Wing",
+                employerOrgName = "Maatram Student Chapter",
                 availableForPv = true,
                 verifiedHours = 36.0,
                 completedActivities = 9L,

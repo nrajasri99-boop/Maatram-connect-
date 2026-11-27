@@ -662,8 +662,9 @@ private fun MaatramWorkspaceShell(
                                         userDistrict = profile.district,
                                         currentUserId = uid,
                                         availableForPv = myStats?.availableForPv ?: true,
-                                        pvCases = pvCases,
-                                        callingTasks = callingTasks,
+                                        myAssignments = myAssignments,
+                                        pvCases = myPvCases,
+                                        callingTasks = myCallingTasks,
                                         isBusy = isBusy,
                                         onTogglePvAvailability = onTogglePvAvailability,
                                         onRequestJoin = onRequestJoin,
@@ -710,10 +711,15 @@ private fun MaatramWorkspaceShell(
                                         pvCases = pvCases,
                                         volunteerHours = volunteerHours,
                                         districts = districts,
+                                        currentUserId = uid,
                                         isBusy = isBusy,
                                         onCreateOpportunity = onCreateOpportunity,
                                         onToggleOppStatus = onToggleOppStatus,
                                         onReviewRequest = onReviewRequest,
+                                        onCastPollVote = { opp ->
+                                            onRequestJoin(opp, "Office Team poll vote — Available")
+                                        },
+                                        onCancelPollVote = onCancelRequest,
                                         onOpenFairAllocation = { currentTab = AppTab.OFFICE_FAIR_ALLOC }
                                     )
                                     AppTab.OFFICE_FAIR_ALLOC -> OfficeFairAllocationAndVerificationScreen(

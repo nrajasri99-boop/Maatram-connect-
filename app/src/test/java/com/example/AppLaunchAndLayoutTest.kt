@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.example.data.model.AppSettings
 import com.example.data.model.Opportunity
 import com.example.data.model.PhysicalVerificationCase
@@ -80,8 +80,9 @@ class AppLaunchAndLayoutTest {
         }
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("MAATRAM CONNECT").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("login_email_input").performTextInput("raja.student@maatram.org")
-        composeTestRule.onNodeWithTag("login_password_input").performTextInput("pass1234")
+        composeTestRule.onNodeWithText("student@maatram.org").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("login_email_input").performTextReplacement("raja.student@maatram.org")
+        composeTestRule.onNodeWithTag("login_password_input").performTextReplacement("pass1234")
         composeTestRule.onNodeWithTag("login_submit_button").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
@@ -100,7 +101,9 @@ class AppLaunchAndLayoutTest {
         composeTestRule.onNodeWithTag("category_card_PHYSICAL_VERIFICATION").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("pv_availability_switch").assertIsDisplayed()
-        composeTestRule.onNodeWithText("PV-2026-01 • Srirangam Zone").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("My Assigned Details (1)").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("PV-2026-01 • APP-PRV-101").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("PV-2026-02 • Woraiyur Zone").assertDoesNotExist()
 
         // Return back to Category Hub
         composeTestRule.onNodeWithTag("category_back_button").performClick()
@@ -118,12 +121,13 @@ class AppLaunchAndLayoutTest {
         }
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("login_role_office_team").performClick()
-        composeTestRule.onNodeWithTag("login_email_input").performTextInput("office@maatram.org")
-        composeTestRule.onNodeWithTag("login_password_input").performTextInput("office123")
+        composeTestRule.onNodeWithText("office@maatram.org").assertIsDisplayed()
         composeTestRule.onNodeWithTag("login_submit_button").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("Office Team Portal").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("office_poll_vote_opp_pv_trichy").performScrollTo().performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Works by Category").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("office_create_category_work_btn").assertIsDisplayed()
@@ -139,8 +143,7 @@ class AppLaunchAndLayoutTest {
         }
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("login_role_admin").performClick()
-        composeTestRule.onNodeWithTag("login_email_input").performTextInput("nrajasri99@gmail.com")
-        composeTestRule.onNodeWithTag("login_password_input").performTextInput("admin123")
+        composeTestRule.onNodeWithText("nrajasri99@gmail.com").assertIsDisplayed()
         composeTestRule.onNodeWithTag("login_submit_button").performScrollTo().performClick()
         composeTestRule.waitForIdle()
 
@@ -252,7 +255,9 @@ class AppLaunchAndLayoutTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("pv_availability_switch").assertIsDisplayed()
         composeTestRule.onNodeWithText("PV Drive - Tiruchirappalli").assertIsDisplayed()
-        composeTestRule.onNodeWithText("PV-2026-99 • Srirangam").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Office Availability Poll: 3 of 5 slots available").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("request_join_opp1").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("PV-2026-99 • APP-99").assertDoesNotExist()
     }
 
     @Test

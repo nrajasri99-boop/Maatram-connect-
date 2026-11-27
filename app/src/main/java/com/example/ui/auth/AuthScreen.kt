@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -100,10 +101,18 @@ enum class LoginRoleOption(val label: String, val userRole: UserRole) {
     ADMIN("Admin", UserRole.ADMIN)
 }
 
+private const val STUDENT_SAMPLE_EMAIL = "student@maatram.org"
+private const val STUDENT_SAMPLE_PASSWORD = "student123"
 private const val OFFICE_SHARED_EMAIL = "office@maatram.org"
 private const val OFFICE_SHARED_PASSWORD = "office123"
 private const val ADMIN_EMAIL = "nrajasri99@gmail.com"
 private const val ADMIN_PASSWORD = "admin123"
+
+private fun defaultCredentialsFor(role: LoginRoleOption): Pair<String, String> = when (role) {
+    LoginRoleOption.STUDENT -> STUDENT_SAMPLE_EMAIL to STUDENT_SAMPLE_PASSWORD
+    LoginRoleOption.OFFICE_TEAM -> OFFICE_SHARED_EMAIL to OFFICE_SHARED_PASSWORD
+    LoginRoleOption.ADMIN -> ADMIN_EMAIL to ADMIN_PASSWORD
+}
 
 fun ensureFirebaseAuth(context: Context): FirebaseAuth? {
     return try {
@@ -244,8 +253,8 @@ fun AuthScreen(
     val credentialManager = remember { CredentialManager.create(context) }
 
     var selectedRole by remember { mutableStateOf(LoginRoleOption.STUDENT) }
-    var emailInput by remember { mutableStateOf("") }
-    var passwordInput by remember { mutableStateOf("") }
+    var emailInput by remember { mutableStateOf(STUDENT_SAMPLE_EMAIL) }
+    var passwordInput by remember { mutableStateOf(STUDENT_SAMPLE_PASSWORD) }
     var passwordVisible by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -342,6 +351,9 @@ fun AuthScreen(
                                 selected = selectedRole == roleOption,
                                 onClick = {
                                     selectedRole = roleOption
+                                    val (sampleEmail, samplePass) = defaultCredentialsFor(roleOption)
+                                    emailInput = sampleEmail
+                                    passwordInput = samplePass
                                     errorMessage = null
                                 },
                                 label = {
@@ -359,6 +371,16 @@ fun AuthScreen(
                         }
                     }
 
+                    val fieldColors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        cursorColor = Color.Black,
+                        focusedBorderColor = MaatramBlue,
+                        unfocusedBorderColor = MaatramOutline,
+                        focusedLabelColor = MaatramBlue,
+                        unfocusedLabelColor = Color.DarkGray
+                    )
+
                     OutlinedTextField(
                         value = emailInput,
                         onValueChange = {
@@ -369,7 +391,7 @@ fun AuthScreen(
                         placeholder = {
                             Text(
                                 when (selectedRole) {
-                                    LoginRoleOption.STUDENT -> "student@maatram.org"
+                                    LoginRoleOption.STUDENT -> STUDENT_SAMPLE_EMAIL
                                     LoginRoleOption.OFFICE_TEAM -> OFFICE_SHARED_EMAIL
                                     LoginRoleOption.ADMIN -> ADMIN_EMAIL
                                 }
@@ -378,6 +400,7 @@ fun AuthScreen(
                         leadingIcon = {
                             Icon(Icons.Filled.Email, contentDescription = null, tint = MaatramBlue)
                         },
+                        colors = fieldColors,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
                         modifier = Modifier
@@ -404,6 +427,7 @@ fun AuthScreen(
                                 )
                             }
                         },
+                        colors = fieldColors,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true,
@@ -420,7 +444,7 @@ fun AuthScreen(
                         Text(
                             text = when (selectedRole) {
                                 LoginRoleOption.STUDENT ->
-                                    "Student Login: Use your own Email ID and password (min 4 characters)."
+                                    "Demo Student Login: $STUDENT_SAMPLE_EMAIL  /  $STUDENT_SAMPLE_PASSWORD (or enter your email)"
                                 LoginRoleOption.OFFICE_TEAM ->
                                     "Office Team Shared Login: $OFFICE_SHARED_EMAIL  /  $OFFICE_SHARED_PASSWORD"
                                 LoginRoleOption.ADMIN ->
